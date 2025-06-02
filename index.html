@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>一敲一靜心</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Arial', sans-serif;
+      background-image: url('background.PNG');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      overflow: hidden;
+    }
+
+    h1 {
+      text-align: center;
+      margin-top: 20px;
+      font-family: 'Segoe UI Rounded', 'Noto Sans TC', sans-serif;
+      font-size: 7em;
+      font-weight: bold;
+      letter-spacing: 14px;
+      color: #5e3c2c;
+      text-shadow: 3px 3px 0 #fff, -3px -3px 0 #fff;
+      border-radius: 60px;
+      display: inline-block;
+      padding: 0 30px;
+      background-color: rgba(255, 255, 255, 0.3);
+    }
+
+    #count {
+      position: absolute;
+      top: 30px;
+      right: 30px;
+      font-size: 2.5em;
+      background-color: rgba(255, 255, 255, 0.7);
+      padding: 15px 25px;
+      border-radius: 20px;
+      color: #222;
+      text-shadow: 1px 1px 2px #fff;
+    }
+
+    #muyu {
+      width: 600px;
+      position: absolute;
+      left: 50%;
+      bottom: -100px;
+      transform: translateX(-50%);
+    }
+
+    .jump {
+      animation: jump 0.3s ease;
+    }
+
+    @keyframes jump {
+      0%   { transform: translateX(-50%) translateY(0); }
+      30%  { transform: translateX(-50%) translateY(-25px); }
+      60%  { transform: translateX(-50%) translateY(0); }
+      100% { transform: translateX(-50%) translateY(0); }
+    }
+
+    #zen {
+      position: absolute;
+      top: 38%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 5em;
+      font-weight: bold;
+      color: #ffffff;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
+      pointer-events: none;
+      z-index: 10;
+      text-shadow:
+        0 0 10px #ffddaa,
+        0 0 20px #ffcc88,
+        0 0 30px #ffbb66,
+        0 0 40px #ffaa44;
+    }
+
+    #zen.show {
+      opacity: 1;
+      animation: fadeOut 3s ease-in-out forwards;
+    }
+
+    @keyframes fadeOut {
+      0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      80% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.05);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.1);
+      }
+    }
+
+    #status {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      font-size: 0.9em;
+      color: gray;
+      background-color: rgba(255, 255, 255, 0.5);
+      padding: 5px 10px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>一敲一靜心</h1>
+  <div id="count">0 下</div>
+  <img id="muyu" src="muyu1.PNG" alt="木魚" />
+  <div id="zen"></div>
+  <div id="status">正在偵測聲音...</div>
+
+  <audio id="tapSound" src="tap.WAV"></audio>
+
+  <script>
+    let count = 0;
+    let lastTriggerTime = 0;
+    const cooldown = 500;
+
+    const zenPhrases = [
+      '靜能生慧',
+      '放下就是自由',
+      '一心一意，不迷不惘',
+      '日日新生，心無所著',
+      '合眼一笑，精神自然餘'
+    ];
+
+    function triggerMuyu() {
+      const now = Date.now();
+      if (now - lastTriggerTime < cooldown) return;
+      lastTriggerTime = now;
+
+      count++;
+      document.getElementById('count').innerText = `${count} 下`;
+
+      const audio = document.getElementById('tapSound');
+      audio.volume = 1.0;
+      audio.currentTime = 0;
+      audio.play();
+
+      const muyu = document.getElementById('muyu');
+      muyu.classList.add('jump');
+      setTimeout(() => {
+        muyu.classList.remove('jump');
+      }, 300);
+
+      if (count === 50) {
+        muyu.src = 'muyu2.PNG';
+      } else if (count === 100) {
+        muyu.src = 'muyu3.PNG';
+      } else if (count === 150) {
+        muyu.src = 'muyu4.PNG';
+      }
+
+      if (count % 20 === 0) {
+        const phrase = zenPhrases[Math.floor(Math.random() * zenPhrases.length)];
+        const zenDiv = document.getElementById('zen');
+        zenDiv.innerText = phrase;
+        zenDiv.classList.add('show');
+        setTimeout(() => {
+          zenDiv.classList.remove('show');
+        }, 3000);
+      }
+    }
+
+    async function setupAudio() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 1024;
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        source.connect(analyser);
+
+        function detect() {
+          analyser.getByteFrequencyData(dataArray);
+          const lowFreq = dataArray.slice(5, 30);
+          const total = lowFreq.reduce((a, b) => a + b, 0) / lowFreq.length;
+
+          if (total > 100) {
+            triggerMuyu();
+          }
+
+          requestAnimationFrame(detect);
+        }
+
+        detect();
+        document.getElementById('status').innerText = '聲音偵測啟動中...';
+      } catch (e) {
+        document.getElementById('status').innerText = '無法使用麥克風，請確認瀏覽器授權';
+        console.error(e);
+      }
+    }
+
+    setupAudio();
+  </script>
+</body>
+</html>
